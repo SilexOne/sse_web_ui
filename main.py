@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from flask import Flask
+from flask import Flask, render_template, jsonify, url_for, redirect
 app = Flask(__name__)
 
 DATABASE_LOCATION = '/Users/bermudez/Documents/personal/gitprojects/ise/database'
@@ -14,10 +14,10 @@ ABS_PATH = os.path.join(DATABASE_LOCATION, DATABASE_NAME)
 
 @app.route('/')
 def hello_world():
-    return 'Score Board'
+    return render_template("index.html")
 
 
-@app.route('/tables')
+@app.route('/api/tables')
 def list_tables():
     tables = []
     with sqlite3.connect(ABS_PATH) as connection:
@@ -29,7 +29,7 @@ def list_tables():
         return str(tables)
 
 
-@app.route('/tables/<tablename>')
+@app.route('/api/tables/<tablename>')
 def query_table(tablename):
     response = ''
     with sqlite3.connect(ABS_PATH) as connection:
@@ -44,7 +44,7 @@ def query_table(tablename):
             return str(e)
 
 
-@app.route('/tables/last/<tablename>')
+@app.route('/api/tables/last/<tablename>')
 def query_table_last_entry(tablename):
     with sqlite3.connect(ABS_PATH) as connection:
         try:
@@ -55,3 +55,26 @@ def query_table_last_entry(tablename):
             return str(last_entry)
         except Exception as e:
             return str(e)
+
+
+@app.route('/api/services/status')
+def score_board():
+    services_last_status = {}
+    with sqlite3.connect(ABS_PATH) as connection:
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            table_name_response = cursor.fetchall()
+            for table in table_name_response:
+                table_name = table[0]
+                cursor.execute("SELECT * FROM {} ORDER BY id DESC LIMIT 1".format(table_name))
+                last_entry_response = cursor.fetchone()
+                last_entry_status = last_entry_response[2]
+                services_last_status[table_name] = last_entry_status
+            return jsonify(services_last_status)
+        except Exception as e:
+            return str(e)
+
+
+if __name__ == '__main__':
+   app.run(debug = True)
